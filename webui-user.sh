@@ -26,6 +26,7 @@
 
 # install command for torch
 #export TORCH_COMMAND="pip install torch==1.12.1+cu113 --extra-index-url https://download.pytorch.org/whl/cu113"
+#export TORCH_COMMAND="pip install torch==1.13 torch-directml==0.1.13.dev221206"
 
 # Requirements file to use for stable-diffusion-webui
 #export REQS_FILE="requirements_versions.txt"
