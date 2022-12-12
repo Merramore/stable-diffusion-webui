@@ -11,6 +11,37 @@ except ModuleNotFoundError:
 else:
     has_dml = True
 
+# DirectML Hack: bypass unimplemented torch.group_norm()
+if has_dml:
+    import functools
+
+    _dml_devices = [dml.device(_i) for _i in range(dml.device_count())]
+
+    _original__group_norm = torch.group_norm
+    @functools.wraps(_original__group_norm)
+    def _shim__group_norm(*args, **kwargs):
+        dml_device = None
+        def maybe_bypass_dml (arg):
+            nonlocal dml_device
+            try:
+                device = arg.device
+            except:
+                pass
+            else:
+                if device in _dml_devices:
+                    # Just store the last DML device seen.
+                    dml_device = device
+                    return arg.to('cpu')
+            return arg
+        output = _original__group_norm(
+            *(maybe_bypass_dml(arg) for arg in args),
+            **{k:maybe_bypass_dml(v) for k, v in kwargs.items()},
+        )
+        if dml_device is not None:
+            output = output.to(dml_device)
+        return output
+    torch.group_norm = _shim__group_norm
+
 # has_mps is only available in nightly pytorch (for now) and macOS 12.3+.
 # check `getattr` and try it for compatibility
 def has_mps() -> bool:
