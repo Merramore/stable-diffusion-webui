@@ -157,6 +157,18 @@ def run_extensions_installers(settings_file):
         run_extension_installer(os.path.join(dir_extensions, dirname_extension))
 
 
+torch_device_tests = ["import torch; assert torch.cuda.is_available()"]
+def run_torch_device_tests():
+    for src in torch_device_tests:
+        try:
+            run_python(src)
+        except:
+            continue
+        else:
+            return
+    raise RuntimeError('Torch is not able to use GPU; add --skip-torch-cuda-test to COMMANDLINE_ARGS variable to disable this check')
+
+
 def prepare_environment():
     torch_command = os.environ.get('TORCH_COMMAND', "pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 --extra-index-url https://download.pytorch.org/whl/cu113")
     requirements_file = os.environ.get('REQS_FILE', "requirements_versions.txt")
@@ -205,9 +217,6 @@ def prepare_environment():
     if not is_installed("torch") or not is_installed("torchvision"):
         run(f'"{python}" -m {torch_command}', "Installing torch and torchvision", "Couldn't install torch")
 
-    if not skip_torch_cuda_test:
-        run_python("import torch; assert torch.cuda.is_available(), 'Torch is not able to use GPU; add --skip-torch-cuda-test to COMMANDLINE_ARGS variable to disable this check'")
-
     if not is_installed("gfpgan"):
         run_pip(f"install {gfpgan_package}", "gfpgan")
 
@@ -246,6 +255,9 @@ def prepare_environment():
     run_pip(f"install -r {requirements_file}", "requirements for Web UI")
 
     run_extensions_installers(settings_file=args.ui_settings_file)
+
+    if not skip_torch_cuda_test:
+        run_torch_device_tests()
 
     if update_check:
         version_check(commit)
