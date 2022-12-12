@@ -4,6 +4,12 @@ import torch
 from modules import errors
 from packaging import version
 
+try:
+    import torch_directml as dml
+except ModuleNotFoundError:
+    has_dml = False
+else:
+    has_dml = True
 
 # has_mps is only available in nightly pytorch (for now) and macOS 12.3+.
 # check `getattr` and try it for compatibility
@@ -25,6 +31,15 @@ def extract_device_id(args, name):
     return None
 
 
+def get_device(device_string):
+    if has_dml and device_string.lower().startswith("dml"):
+        device_id = device_string[3:].strip(":")
+        device_id = int(device_id) if device_id else None
+        return dml.device(device_id)
+
+    return torch.device(device_string)
+
+
 def get_cuda_device_string():
     from modules import shared
 
@@ -35,8 +50,16 @@ def get_cuda_device_string():
 
 
 def get_optimal_device():
+    from modules import shared
+
+    if shared.cmd_opts.device is not None:
+        return get_device(shared.cmd_opts.device)
+
     if torch.cuda.is_available():
         return torch.device(get_cuda_device_string())
+
+    if has_dml:
+        return dml.device()
 
     if has_mps():
         return torch.device("mps")
